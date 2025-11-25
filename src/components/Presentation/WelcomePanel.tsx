@@ -1,186 +1,94 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from "react";
 
-interface Slide {
-  title: string;
-  message: string;
-  image?: string;
-}
-
-const slides: Slide[] = [
-  { title: 'Seja Bem-vindo!', message: 'Explore o sistema...', image: '/carrossel1.png' },
-  { title: 'Dados em Tempo Real', message: 'Acompanhe informações...', image: '/carrossel2.png' },
-  { title: 'Prevenção e Segurança', message: 'Receba notificações...', image: '/carrossel3.png' },
+const slides = [
+  {
+    title: "BALCAR!",
+    text: "O Projeto BALCAR foi um estudo de pesquisa e desenvolvimento realizado entre 2011 e 2013 pela Eletrobras e pelo Centro de Pesquisas de Energia Elétrica (Cepel) para medir as emissões de gases de efeito estufa (GEE) em reservatórios de usinas hidrelétricas no Brasil.",
+    bg: "#006666",
+    imgSrc: "/mapa/itumbiara.jpg",
+  },
+  {
+    title: "FURNAS",
+    text: "O projeto busca avaliar as emissões de gases de efeito estufa (GEE) dos reservatórios hidrelétricos de Furnas, comparando-as com as de usinas termelétricas e o carbono fixado em reflorestamentos. Essa iniciativa atende à Convenção da ONU sobre o Clima.",
+    bg: "#1777af",
+    imgSrc: "/mapa/furnas.jpg",
+  },
+  {
+    title: "SIMA",
+    text: "Iniciado em 2019 na Universidade Federal do Pará (UFPA), o projeto visa criar o primeiro corredor verde de transporte da Amazônia, utilizando ônibus e uma embarcação elétricas, painéis fotovoltaicos, e um software de gestão. O objetivo é promover a mobilidade sustentável.",
+    bg: "#36454F",
+    imgSrc: "/mapa/tres-marias.jpg",
+  },
 ];
 
-const WelcomePanel: React.FC = () => {
+export default function WelcomePanel() {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [height, setHeight] = useState<number>(0);
-
-  // Cria refs individualmente para cada slide
-  const slideRefs = useRef<HTMLDivElement[]>([]);
 
   useEffect(() => {
     const interval = setInterval(() => {
+      // Ajustado para +1 para garantir rotação sequencial suave, 
+      // mas você pode voltar para +2 se for uma escolha estilística específica.
       setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 5000);
+    }, 4000);
     return () => clearInterval(interval);
   }, []);
 
-  // Atualiza altura
-  useEffect(() => {
-    const currentSlideEl = slideRefs.current[currentSlide];
-    if (currentSlideEl) setHeight(currentSlideEl.offsetHeight);
-  }, [currentSlide]);
-
-  const nextSlide = () => setCurrentSlide((prev) => (prev + 1) % slides.length);
-  const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
-
-  // Swipe mobile
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
-  const handleTouchStart = (e: React.TouchEvent) => (touchStartX.current = e.changedTouches[0].screenX);
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    touchEndX.current = e.changedTouches[0].screenX;
-    const diff = touchStartX.current - touchEndX.current;
-    if (diff > 50) nextSlide();
-    if (diff < -50) prevSlide();
-  };
-
   return (
-    <section
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      style={{
-        maxWidth: '900px',
-        margin: '40px auto',
-        borderRadius: '16px',
-        boxShadow: '0 12px 24px rgba(0,0,0,0.15)',
-        overflow: 'hidden',
-        position: 'relative',
-        height,
-        transition: 'height 0.5s ease',
-      }}
+    // Container Principal:
+    // - w-full e max-w-[1000px]: Ocupa 100% da tela até atingir 1000px.
+    // - h-[500px] md:h-[320px]: Mais alto no mobile para caber o texto verticalmente.
+    <div
+      className="relative mx-auto overflow-hidden rounded-2xl shadow-xl w-full max-w-[1000px] h-[520px] md:h-[320px]"
     >
-      {/* Slides */}
-      <div
-        style={{
-          display: 'flex',
-          transform: `translateX(-${currentSlide * 100}%)`,
-          transition: 'transform 0.8s ease-in-out',
-          width: `${slides.length * 100}%`,
-        }}
-      >
-        {slides.map((slide, index) => (
+      {slides.map((slide, index) => (
+        <div
+          key={index}
+          className={`absolute inset-0 transition-opacity duration-1000 ${
+            index === currentSlide ? "opacity-100 z-10" : "opacity-0 z-0"
+          }`}
+        >
+          {/* 1. Imagem de Fundo */}
+          <img
+            src={slide.imgSrc}
+            alt={`Fundo do slide ${slide.title}`}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+
+          {/* 2. Sobreposição de Cor + Conteúdo */}
           <div
-            key={index}
-            ref={(el) => {
-              if (el) slideRefs.current[index] = el; // Atribui o elemento ao array
-            }}
-            style={{
-              flex: '0 0 100%',
-              position: 'relative',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              padding: '40px 20px',
-              boxSizing: 'border-box',
-              textAlign: 'center',
-              color: 'white',
-            }}
+            className="absolute inset-0 flex flex-col items-center justify-center text-center text-white p-4 md:p-0"
+            style={{ backgroundColor: `${slide.bg}B3` }}
           >
-            {slide.image && (
-              <img
-                src={slide.image}
-                alt={slide.title}
-                loading="lazy"
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  zIndex: 0,
-                  filter: 'brightness(0.5)',
-                }}
-              />
-            )}
-            <div style={{ position: 'relative', zIndex: 1, maxWidth: '80%' }}>
-              <h2
-                style={{
-                  fontSize: 'clamp(2rem, 4vw, 3rem)',
-                  marginBottom: '15px',
-                  textShadow: '2px 2px 8px rgba(0,0,0,0.7)',
-                }}
-              >
+            <div className="px-4 md:px-8 max-w-full md:max-w-4xl">
+              <h2 className="text-2xl md:text-3xl font-bold mb-3 md:mb-2">
                 {slide.title}
               </h2>
-              <p
-                style={{
-                  fontSize: 'clamp(1.1rem, 2.5vw, 1.4rem)',
-                  lineHeight: 1.6,
-                  textShadow: '1px 1px 6px rgba(0,0,0,0.6)',
-                }}
-              >
-                {slide.message}
+              {/* Texto responsivo:
+                 - text-sm ou text-base no mobile
+                 - text-lg no desktop
+                 - line-clamp opcional caso o texto seja muito grande para telas pequenas
+              */}
+              <p className="text-base md:text-lg leading-relaxed">
+                {slide.text}
               </p>
             </div>
           </div>
-        ))}
-      </div>
-
-      {/* Botões */}
-      <button onClick={prevSlide} style={buttonStyle(true)}>◀</button>
-      <button onClick={nextSlide} style={buttonStyle(false)}>▶</button>
+        </div>
+      ))}
 
       {/* Indicadores */}
-      <div style={indicatorContainerStyle}>
-        {slides.map((_, index) => (
-          <span
-            key={index}
-            onClick={() => setCurrentSlide(index)}
-            style={{
-              display: 'inline-block',
-              width: currentSlide === index ? 16 : 12,
-              height: currentSlide === index ? 16 : 12,
-              borderRadius: '50%',
-              backgroundColor: currentSlide === index ? '#1777af' : 'rgba(255,255,255,0.5)',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease',
-            }}
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-20">
+        {slides.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setCurrentSlide(i)}
+            className={`w-3 h-3 rounded-full transition-all border border-white/20 ${
+              currentSlide === i ? "bg-white scale-110" : "bg-white/40 hover:bg-white/60"
+            }`}
+            aria-label={`Ir para slide ${i + 1}`}
           />
         ))}
       </div>
-    </section>
+    </div>
   );
-};
-
-// Estilos dos botões
-const buttonStyle = (isLeft: boolean): React.CSSProperties => ({
-  position: 'absolute',
-  top: '50%',
-  [isLeft ? 'left' : 'right']: '15px',
-  transform: 'translateY(-50%)',
-  padding: '10px 15px',
-  fontSize: '1.4rem',
-  borderRadius: '50%',
-  border: 'none',
-  cursor: 'pointer',
-  backgroundColor: 'rgba(0,0,0,0.4)',
-  color: 'white',
-  zIndex: 2,
-});
-
-// Estilo do container de indicadores
-const indicatorContainerStyle: React.CSSProperties = {
-  position: 'absolute',
-  bottom: '15px',
-  left: '50%',
-  transform: 'translateX(-50%)',
-  display: 'flex',
-  gap: '10px',
-  zIndex: 2,
-};
-
-export default WelcomePanel;
+}

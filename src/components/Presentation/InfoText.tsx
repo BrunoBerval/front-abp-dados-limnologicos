@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 
-export default function About() {
+export default function InfoText() {
   const [openSection, setOpenSection] = useState<null | string>("introducao");
 
   const toggleSection = (section: string) => {
@@ -16,14 +16,18 @@ export default function About() {
           <div className="flex justify-center mb-2">
             <span className="text-blue-500 text-4xl">💧</span>
           </div>
-          <h1 className="text-2xl font-bold text-blue-600">Dados Limnológicos</h1>
+           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight mb-4 group">
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-[#1777af] to-cyan-500 transition-all duration-500 group-hover:from-cyan-500 group-hover:to-[#1777af]">
+              Dados Limnológicos
+            </span>
+          </h1>
         </div>
 
         {/* Seção: O que são Dados Limnológicos */}
         <section className="mb-4">
           <button
             onClick={() => toggleSection("introducao")}
-            className="flex items-center gap-2 font-bold text-lg text-left w-full"
+            className="flex items-center gap-2 font-semibold text-gray-800 text-lg text-left w-full"
           >
             <ChevronDown
               className={`text-blue-600 transition-transform ${
@@ -53,7 +57,7 @@ export default function About() {
         <section className="mb-4">
           <button
             onClick={() => toggleSection("fisicas")}
-            className="flex items-center gap-2 font-bold text-lg text-left w-full"
+            className="flex items-center gap-2 font-semibold text-gray-800 text-lg text-left w-full"
           >
             <ChevronDown
               className={`text-blue-600 transition-transform ${
@@ -89,7 +93,7 @@ export default function About() {
         <section className="mb-4">
           <button
             onClick={() => toggleSection("quimicas")}
-            className="flex items-center gap-2 font-bold text-lg text-left w-full"
+            className="flex items-center gap-2 font-semibold text-gray-800 text-lg text-left w-full"
           >
             <ChevronDown
               className={`text-blue-600 transition-transform ${
@@ -125,7 +129,7 @@ export default function About() {
         <section>
           <button
             onClick={() => toggleSection("biologicas")}
-            className="flex items-center gap-2 font-bold text-lg text-left w-full"
+            className="flex items-center gap-2 font-semibold text-gray-800 text-lg text-left w-full"
           >
             <ChevronDown
               className={`text-blue-600 transition-transform ${
