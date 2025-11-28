@@ -1,47 +1,34 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// Paleta de cores (ATUALIZADA: Tema Escuro + Bege/Cinza)
-const colors = {
-  // Cores Primárias (Bege/Cinza)
-  primary: "#D2B48C", // Bege (para acentos e seleção)
-  secondary: "#AAAAAA", // Cinza (para texto secundário)
-  primaryText: "#000000", // Texto para usar sobre o Bege (Contraste)
-
-  // Cores da Sidebar (Tema Escuro)
-  sidebarBg: "#1F2937", // Fundo Principal da Sidebar (Cinza Escuro)
-  sidebarBorder: "#374151", // Borda sutil e separadores
-  sidebarItem: "#374151", // Fundo de itens e inputs
-  sidebarHover: "#4B5563", // Fundo de hover
-  sidebarText: "#F3F4F6", // Cor principal do texto (Branco/Cinza Claro)
-  sidebarTextMuted: "#AAAAAA", // Cor do texto secundário (Cinza)
-
-  // Cores do Mapa (UI Escura para Popups)
-  mapPopupBg: "#374151", // Fundo do Popup (Escuro)
-  mapPopupText: "#F3F4F6", // Texto do Popup (Claro)
-
-  // Cores não utilizadas (mantidas para referência)
-  mapMarkerSima: "#BDB76B",
-  mapMarkerSimaVibrant: "#BDB76B",
-  mapMarkerFurnas: "#1D4ED8",
-  mapMarkerBalcar: "#047857",
-  white: "#FFFFFF",
-};
-
 // --- Interfaces e Funções Úteis (Mantidas) ---
+
+interface ColorPalette {
+  background: string;
+  surface: string;
+  primary: string;
+  secondary: string;
+}
+
+
+const colorsSima: ColorPalette = {
+    background: '#F3F7FB',
+    surface: '#FFFFFF',
+    primary: '#008080',
+    secondary: '#00CED1',
+};
 
 interface ImageMap {
   [key: string]: string;
 }
 
-// (MANTIDO) Objeto de imagens
 const reservatorioImages: ImageMap = {
   antar: "/mapa/antar.jpg",
   balbina: "/mapa/balbina.jpg",
   batalha: "/mapa/batalha.jpg",
-  "belo-monte": "/mapa/belo-monte.jpg",
+  'belo-monte': "/mapa/belo-monte.jpg",
   corumba: "/mapa/corumba.jpg",
   curuai: "/mapa/curua.jpg",
   estreito: "/mapa/estreito.jpg",
@@ -54,32 +41,30 @@ const reservatorioImages: ImageMap = {
   mamiraua: "/mapa/mamiraua.jpg",
   manso: "/mapa/manso.jpg",
   marimbondo: "/mapa/marimbondo.jpg",
-  "mascarenhas-de-moraes": "/mapa/mascarenhas-de-moraes.jpg",
-  "porto-colombia": "/mapa/porto-colombia.jpg",
+  'mascarenhas-de-moraes': "/mapa/mascarenhas-de-moraes.jpg",
+  'porto-colombia': "/mapa/porto-colombia.jpg",
   segredo: "/mapa/segredo.jpg",
-  "serra-da-mesa": "/mapa/serra-da-mesa.jpg",
-  "tres-marias": "/mapa/tres-marias.jpg",
+  'serra-da-mesa': "/mapa/serra-da-mesa.jpg",
+  'tres-marias': "/mapa/tres-marias.jpg",
   tucurui: "/mapa/tucurui.jpg",
-  "santo-antonio": "/mapa/santo-antonio.jpg",
-  xingo: "/mapa/xingo.jpg",
+  'santo-antonio': "/mapa/santo-antonio.jpg",
+  xingo: "/mapa/xingo.jpg"
 };
 
-// (MANTIDO) Função para mapear nome -> chave de imagem
 const formatNameForImageKey = (name: string): string => {
   const formattedName = name
     .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/ /g, "-")
     .replace(/--/g, "-");
 
   const namesToMatch = [
-    "mascarenhas-de-moraes",
-    "serra-da-mesa",
-    "tres-marias",
-    "santo-antonio",
-    "belo-monte",
-    "porto-colombia",
+    'mascarenhas-de-moraes',
+    'serra-da-mesa',
+    'tres-marias',
+    'santo-antonio',
+    'belo-monte',
+    'porto-colombia'
   ];
 
   for (const matchName of namesToMatch) {
@@ -95,8 +80,6 @@ const formatNameForImageKey = (name: string): string => {
 
   return formattedName;
 };
-
-// --- Interfaces de Dados (Mantidas) ---
 
 interface ApiResponse<T> {
   success: boolean;
@@ -116,181 +99,214 @@ interface Estacao {
   fim: string | null;
 }
 
-// (ADICIONADO) Estilo do Círculo do Ícone
-const getIconBgStyle = (isReservatorio: boolean) => {
-  // Se não for reservatório, retorna um objeto vazio (ou de alinhamento)
-  if (!isReservatorio) {
-    return {
-      backgroundColor: "transparent", // Mantém o espaço
-    };
-  }
-  // Se for, aplica o fundo Bege
-  return {
-    backgroundColor: colors.primary, // Bege
-    color: colors.primaryText, // Texto preto para contraste
-  };
-};
+interface EstacaoSimaAninhada {
+  idestacao: string;
+  rotulo: string;
+  lat: number;
+  lng: number;
+}
 
-// --- Componente: SidebarItem (REFATORADO) ---
+interface SimaRegistro {
+  idsima: number;
+  datahora: string;
+  precipitacao: number | null;
+  estacao: EstacaoSimaAninhada;
+}
+
+interface EstacaoComDados extends Estacao {
+  ultimaPrecipitacao: number | null;
+}
+
+// --- Tipos e Funções da Sidebar (Mantidas) ---
+
+type TipoFiltro = "Todos" | "Coleta" | "Reservatório";
+type StatusFiltro = "Todos" | "Aberto" | "Fechado";
+
+const getIcon = (isReservatorio: boolean) => isReservatorio ? "💧" : "🗑️";
+const getIconColorClass = (isReservatorio: boolean) => isReservatorio ? "text-blue-600 bg-blue-100" : "text-green-600 bg-green-100";
+
+
+// --- Componente: SidebarItem (Completo e Corrigido) ---
 
 const SidebarItem: React.FC<{
-  estacao: Estacao;
-  onSelect: (id: string) => void;
-  isSelected: boolean;
+  estacao: EstacaoComDados,
+  formatDate: (date: string) => string,
+  onSelect: (id: string) => void, // NOVO: Para centralizar o mapa
+  isSelected: boolean // NOVO: Para estilizar o item selecionado
 }> = ({ estacao, onSelect, isSelected }) => {
+
   const imageKey = formatNameForImageKey(estacao.rotulo);
   const isReservatorio = !!reservatorioImages[imageKey];
 
+  const statusText = estacao.fim ? "Fechado" : "Aberto";
+  const statusColor = estacao.fim ? "text-red-600" : "text-green-600";
+
+  const capacidade = isReservatorio
+    ? Math.round(((estacao.ultimaPrecipitacao ?? 0) % 100) * 0.9) + 1 : 45;
+
+  const barColor = capacidade > 70 ? "bg-green-500" : capacidade > 40 ? "bg-yellow-500" : "bg-red-500";
+
+  const infoText = isReservatorio
+    ? `Av. Nazaré, 1000 - Ipiranga, São Paulo ~` : `Rua Domingos de Morais, 2564 - Vila ~`;
+  const horaText = isReservatorio ? `24 horas` : `Seg-Sex: 8h às 18h, Sáb: 8h às 12h`;
+
   return (
     <div
-      className={`p-3 border rounded-lg cursor-pointer transition-colors shadow-sm flex items-center space-x-3`}
-      style={{
-        // Estilo Tema Escuro
-        backgroundColor: isSelected ? colors.sidebarHover : colors.sidebarItem,
-        borderColor: isSelected ? colors.primary : colors.sidebarBorder, // Borda Bege
-        borderStyle: "solid",
-        borderWidth: isSelected ? "2px" : "1px",
-      }}
-      onClick={() => onSelect(estacao.idestacao)}
+      className={`p-3 border rounded-lg cursor-pointer transition-colors shadow-sm 
+                 ${isSelected ? 'border-2 border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}
+      onClick={() => onSelect(estacao.idestacao)} // NOVO: Ao clicar, seleciona
     >
-      {/* (ATUALIZADO) Círculo de ícone para reservatórios */}
-      <div
-        className={`p-1 rounded-full text-lg flex-shrink-0 flex items-center justify-center`}
-        style={{
-          ...getIconBgStyle(isReservatorio),
-          width: "2rem", // 32px
-          height: "2rem", // 32px
-        }}
-      >
-        {isReservatorio ? "💧" : ""}
+      <div className={`flex items-center space-x-3 mb-2`}>
+        <div className={`p-2 rounded-full ${getIconColorClass(isReservatorio)} text-lg`}>
+          {getIcon(isReservatorio)}
+        </div>
+        <div className="flex-1">
+          <h4 className="font-semibold text-gray-800">{estacao.rotulo}</h4>
+        </div>
+        <span className={`text-xs font-medium ${statusColor}`}>{statusText}</span>
       </div>
-      <h4 className="font-semibold" style={{ color: colors.sidebarText }}>
-        {estacao.rotulo}
-      </h4>
+
+      <p className="text-xs text-gray-500 mt-1">{infoText}</p>
+      <p className="text-xs text-gray-500">{horaText}</p>
+
+      <div className="mt-2 text-xs text-gray-600">
+        Capacidade
+        <div className="flex items-center space-x-2">
+          <div className="flex-1 w-full h-1 bg-gray-200 rounded-full">
+            <div className={`h-1 rounded-full ${barColor}`}
+              style={{ width: `${capacidade}%` }}>
+            </div>
+          </div>
+          <span className="font-medium">{capacidade}%</span>
+        </div>
+      </div>
     </div>
   );
 };
 
-// --- Componente: Sidebar (CORRIGIDO COM BOTÃO "TODOS") ---
+
+// --- Componente: Sidebar (Aba Lateral Preenchida) ---
 
 interface SidebarProps {
+  tipoFiltro: TipoFiltro;
+  setTipoFiltro: (tipo: TipoFiltro) => void;
+  statusFiltro: StatusFiltro;
+  setStatusFiltro: (status: StatusFiltro) => void;
   searchText: string;
   setSearchText: (text: string) => void;
-  filteredEstacoes: Estacao[];
-  selectedEstacaoId: string | "all";
-  onSelectEstacao: (id: string) => void;
+  filteredEstacoes: EstacaoComDados[];
+  totalReservatorios: number;
+  totalColeta: number;
+  selectedEstacaoId: string | "all"; // NOVO: Id da estação selecionada
+  onSelectEstacao: (id: string) => void; // NOVO: Função de seleção
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
-  searchText,
-  setSearchText,
+  tipoFiltro, setTipoFiltro,
+  statusFiltro, setStatusFiltro,
+  searchText, setSearchText,
   filteredEstacoes,
+  totalColeta, totalReservatorios,
   selectedEstacaoId,
-  onSelectEstacao,
+  onSelectEstacao
 }) => {
   return (
-    <div
-      className="w-96 p-4 overflow-y-auto shadow-xl flex-shrink-0"
-      style={{
-        height: "100%",
-        zIndex: 10,
-        backgroundColor: colors.sidebarBg, // Tema Escuro
-        borderRight: `1px solid ${colors.sidebarBorder}`,
-        color: colors.sidebarText, // Texto Claro
-      }}
-    >
-      <h2 className="text-xl font-bold mb-1" style={{ color: colors.sidebarText }}>
-        Localizações
-      </h2>
-      <p className="text-sm mb-4" style={{ color: colors.sidebarTextMuted }}>
-        {filteredEstacoes.length} pontos encontrados
-      </p>
+    <div className="w-96 bg-white p-4 overflow-y-auto border-r border-gray-200 shadow-xl flex-shrink-0"
+      style={{ height: "100%", zIndex: 10 }}>
 
-      {/* (MANTIDO) Barra de Busca - Tema Escuro */}
-      <div className="mb-6">
-        {" "}
-        {/* Aumentei o espaçamento */}
+      <h2 className="text-xl font-bold mb-1 text-gray-700">Localizações</h2>
+      <p className="text-sm text-gray-500 mb-4">{filteredEstacoes.length} pontos encontrados</p>
+
+      <div className="flex justify-between space-x-3 mb-4">
+        <div className="flex-1 p-3 rounded-lg border border-gray-300 flex items-center shadow-sm">
+          <div className={`p-2 rounded-full ${getIconColorClass(false)} text-xl mr-2`}>🗑️</div>
+          <div>
+            <p className="text-sm text-gray-500">Coleta</p>
+            <p className="text-xl font-bold text-gray-800">{totalColeta}</p>
+          </div>
+        </div>
+        <div className="flex-1 p-3 rounded-lg border border-gray-300 flex items-center shadow-sm">
+          <div className={`p-2 rounded-full ${getIconColorClass(true)} text-xl mr-2`}>💧</div>
+          <div>
+            <p className="text-sm text-gray-500">Reservatórios</p>
+            <p className="text-xl font-bold text-gray-800">{totalReservatorios}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-4">
         <div className="relative">
-          <svg
-            className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4"
-            style={{ color: colors.sidebarTextMuted }}
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-          </svg>
+          <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
           <input
             type="text"
-            placeholder="Buscar por nome..."
+            placeholder="Buscar por nome ou endereço..."
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 text-sm rounded-lg focus:ring-opacity-50"
-            style={
-              {
-                border: `1px solid ${colors.sidebarBorder}`,
-                backgroundColor: colors.sidebarItem, // Fundo escuro
-                color: colors.sidebarText, // Texto claro
-                "--tw-ring-color": colors.primary, // Foco Bege
-              } as React.CSSProperties
-            }
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm"
           />
         </div>
       </div>
 
-      <div className="space-y-3">
-        {/* === BOTÃO "TODOS" ADICIONADO AQUI === */}
-        <div
-          className={`p-3 border rounded-lg cursor-pointer transition-colors shadow-sm flex items-center space-x-3`}
-          style={{
-            backgroundColor: selectedEstacaoId === "all" ? colors.sidebarHover : colors.sidebarItem,
-            borderColor: selectedEstacaoId === "all" ? colors.primary : colors.sidebarBorder,
-            borderStyle: "solid",
-            borderWidth: selectedEstacaoId === "all" ? "2px" : "1px",
-          }}
-          onClick={() => onSelectEstacao("all")} // Seta o ID para "all"
-        >
-          {/* Ícone para "Todos" */}
-          <div
-            className={`p-1 rounded-full text-lg flex-shrink-0 flex items-center justify-center`}
-            style={{
-              backgroundColor: selectedEstacaoId === "all" ? colors.primary : "transparent",
-              color: selectedEstacaoId === "all" ? colors.primaryText : colors.sidebarText,
-              width: "2rem",
-              height: "2rem",
-            }}
-          >
-            🌍
-          </div>
-          <h4 className="font-semibold" style={{ color: colors.sidebarText }}>
-            Todos os Pontos
-          </h4>
+      <div className="mb-4">
+        <h3 className="font-semibold text-sm mb-2 text-gray-700">Tipo</h3>
+        <div className="flex space-x-2 p-1 rounded-lg border border-gray-200 bg-gray-50">
+          {(["Todos", "Coleta", "Reservatório"] as TipoFiltro[]).map((tipo) => (
+            <button
+              key={tipo}
+              onClick={() => setTipoFiltro(tipo)}
+              className={`flex-1 p-2 rounded-lg text-sm font-medium transition-all ${tipoFiltro === tipo
+                  ? `text-white shadow-sm`
+                  : "text-gray-700 hover:bg-gray-100"
+                }`}
+              style={tipoFiltro === tipo ? { backgroundColor: colorsSima.primary } : {}}
+            >
+              {tipo}
+            </button>
+          ))}
         </div>
-        {/* ======================================= */}
+      </div>
 
+      <div className="mb-6">
+        <h3 className="font-semibold text-sm mb-2 text-gray-700">Status</h3>
+        <div className="flex space-x-2 p-1 rounded-lg border border-gray-200 bg-gray-50">
+          {(["Todos", "Aberto", "Fechado"] as StatusFiltro[]).map((status) => (
+            <button
+              key={status}
+              onClick={() => setStatusFiltro(status)}
+              className={`flex-1 p-2 rounded-lg text-sm font-medium transition-all ${statusFiltro === status
+                  ? `text-white shadow-sm`
+                  : "text-gray-700 hover:bg-gray-100"
+                }`}
+              style={statusFiltro === status ? { backgroundColor: colorsSima.primary } : {}}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3">
         {filteredEstacoes.length > 0 ? (
           filteredEstacoes.map((estacao) => (
             <SidebarItem
               key={estacao.idestacao}
               estacao={estacao}
-              onSelect={onSelectEstacao}
-              isSelected={selectedEstacaoId === estacao.idestacao}
+              formatDate={() => ""}
+              onSelect={onSelectEstacao} // NOVO
+              isSelected={selectedEstacaoId === estacao.idestacao} // NOVO
             />
           ))
         ) : (
-          <p className="text-center p-8 text-sm" style={{ color: colors.sidebarTextMuted }}>
-            Nenhuma localização encontrada.
-          </p>
+          <p className="text-center text-gray-500 p-8 text-sm">Nenhuma localização encontrada com os filtros e busca atuais.</p>
         )}
       </div>
+
     </div>
   );
 };
 
-// --- Configurações do Leaflet (Mantidas) ---
+
+// --- Configurações do Leaflet e Estilos (Mantidas) ---
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -300,36 +316,74 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
 });
 
+const getPrecipitacaoStyle = (mm: number) => {
+  let color = colorsSima.primary;
+  let radius = 6;
+
+  // Ajustado para usar as cores originais do seu código (primeiro trecho),
+  // que são mais coerentes com o contexto, ao invés das cores do código do colega.
+  if (mm > 50) {
+    color = "#FF4500"; // Laranja
+    radius = 12;
+  } else if (mm > 20) {
+    color = "#00CED1"; // Turquesa
+    radius = 9;
+  } else if (mm > 0) {
+    color = "#ADD8E6"; // Azul Claro
+    radius = 6;
+  } else {
+    color = "#CCCCCC"; // Cinza
+    radius = 5;
+  }
+
+  return { color, radius };
+};
+
 const INITIAL_CENTER: [number, number] = [-13.5, -50.0];
 const INITIAL_ZOOM = 5;
 
-// --- Componente Principal: SimaMap (Lógica Simplificada) ---
 
+// --- Componente Principal: SimaMap (Lógica de Centralização Mesclada) ---
 const SimaMap: React.FC = () => {
   const [estacoes, setEstacoes] = useState<Estacao[]>([]);
+  const [simaRegistros, setSimaRegistros] = useState<SimaRegistro[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // ESTADOS DO SEU CÓDIGO (Sidebar/Filtros)
+  const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>("Todos");
+  const [statusFiltro, setStatusFiltro] = useState<StatusFiltro>("Todos");
   const [searchText, setSearchText] = useState("");
+
+  // ESTADO DO CÓDIGO DO COLEGA (Seleção e Centralização)
   const [selectedEstacaoId, setSelectedEstacaoId] = useState<string | "all">("all");
 
-  const formatDate = (dateString: string) =>
-    dateString ? new Date(dateString).toLocaleDateString("pt-BR") : "N/A";
+  // Função de formatação de data (mantida)
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("pt-BR");
+  };
 
-  // --- Busca de dados da API (Apenas Estações) ---
+  // Efeito de busca de dados (Mantido)
   useEffect(() => {
     const fetchData = async () => {
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
       try {
-        const estacoesResponse = await fetch(`${API_BASE_URL}/api/sima/estacao/all?limit=10000`);
-
-        if (!estacoesResponse.ok) throw new Error("Erro ao carregar dados");
+        const [estacoesResponse, simaResponse] = await Promise.all([
+          fetch("http://localhost:3001/api/sima/estacao/all?limit=10000"),
+          fetch("http://localhost:3001/api/sima/sima/all?limit=10000"),
+        ]);
+        if (!estacoesResponse.ok || !simaResponse.ok) throw new Error("Uma das requisições de API falhou.");
 
         const estacoesData: ApiResponse<Estacao> = await estacoesResponse.json();
+        const simaData: ApiResponse<SimaRegistro> = await simaResponse.json();
 
-        if (estacoesData.success) {
-          setEstacoes(estacoesData.data);
+        if (estacoesData.success && simaData.success) {
+          setEstacoes(estacoesData.data || []);
+          setSimaRegistros(simaData.data || []);
+        } else {
+          console.error("Erro ao carregar dados da API (success: false):", estacoesData, simaData);
         }
       } catch (error) {
-        console.error("Erro ao buscar dados:", error);
+        console.error("Erro ao carregar dados:", error);
       } finally {
         setLoading(false);
       }
@@ -337,84 +391,122 @@ const SimaMap: React.FC = () => {
     fetchData();
   }, []);
 
-  // --- Filtros principais (Apenas Busca) ---
-  const filteredEstacoesBase = useMemo(() => {
-    let list = estacoes.filter((e) => e.lat && e.lng);
+  // Combina Estações com a última precipitação (Mantido)
+  const estacoesComPrecipitacao = useMemo<EstacaoComDados[]>(() => {
+    const lastPrecipitacaoMap = new Map<string, number | null>();
 
-    if (searchText) {
-      const q = searchText.toLowerCase();
-      list = list.filter(
-        (e) => e.rotulo.toLowerCase().includes(q) || e.idestacao.toLowerCase().includes(q),
-      );
-    }
-
-    return list;
-  }, [estacoes, searchText]);
-
-  // --- Filtro final (com seleção) ---
-  const filteredEstacoes = useMemo(() => {
-    if (selectedEstacaoId === "all") return filteredEstacoesBase;
-    const selected = filteredEstacoesBase.filter((e) => e.idestacao === selectedEstacaoId);
-    return selected.length > 0 ? selected : filteredEstacoesBase;
-  }, [selectedEstacaoId, filteredEstacoesBase]);
-
-  // --- Centralização dinâmica ---
-  const mapSettings = useMemo(() => {
-    if (selectedEstacaoId !== "all") {
-      const estacao = estacoes.find((e) => e.idestacao === selectedEstacaoId);
-      if (estacao && estacao.lat && estacao.lng) {
-        return { center: [estacao.lat, estacao.lng] as [number, number], zoom: 12 };
+    for (const registro of simaRegistros) {
+      const id = registro.estacao.idestacao;
+      const precipitacao = registro.precipitacao;
+      if (precipitacao !== null && precipitacao !== undefined && !lastPrecipitacaoMap.has(id)) {
+        lastPrecipitacaoMap.set(id, precipitacao);
       }
     }
-    return { center: INITIAL_CENTER, zoom: INITIAL_ZOOM };
-  }, [selectedEstacaoId, estacoes]);
 
-  // --- Estilos do Popup (ATUALIZADO para Tema Escuro) ---
-  const popupStyles = `
-.sima-popup .leaflet-popup-content-wrapper {
-background-color: ${colors.mapPopupBg};
-color: ${colors.mapPopupText};
- border-radius: 8px;
-box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-}
-.sima-popup .leaflet-popup-tip {
- background: ${colors.mapPopupBg};
-}
-.sima-popup .leaflet-popup-close-button {
- color: ${colors.mapPopupText} !important; 
- opacity: 0.7;
-}
-.sima-popup .leaflet-popup-close-button:hover {
- opacity: 1;
-}
-`;
+    return estacoes
+      .filter(estacao => estacao.lat && estacao.lng)
+      .map((estacao) => ({
+        ...estacao,
+        ultimaPrecipitacao: lastPrecipitacaoMap.get(estacao.idestacao) ?? 0,
+      }));
+  }, [estacoes, simaRegistros]);
 
-  // --- Renderização ---
-  if (loading) return <div className="p-4">Carregando mapa... 🗺️</div>;
+  // Contadores (Mantidos)
+  const totalColeta = estacoesComPrecipitacao.filter(estacao => !reservatorioImages[formatNameForImageKey(estacao.rotulo)]).length;
+  const totalReservatorios = estacoesComPrecipitacao.filter(estacao => !!reservatorioImages[formatNameForImageKey(estacao.rotulo)]).length;
+
+  // LÓGICA DE FILTRAGEM: O filtro da Sidebar é o principal. A seleção por ID do colega é aplicada DEPOIS.
+  const filteredEstacoesBase = useMemo(() => {
+    let list = estacoesComPrecipitacao;
+
+    // 1. Filtrar por Tipo (Coleta/Reservatório)
+    list = list.filter(estacao => {
+      const imageKey = formatNameForImageKey(estacao.rotulo);
+      const isReservatorio = !!reservatorioImages[imageKey];
+      if (tipoFiltro === "Coleta") return !isReservatorio;
+      if (tipoFiltro === "Reservatório") return isReservatorio;
+      return true; // "Todos"
+    });
+
+    // 2. Filtrar por Status (Aberto/Fechado)
+    list = list.filter(estacao => {
+      if (statusFiltro === "Aberto") return !estacao.fim;
+      if (statusFiltro === "Fechado") return !!estacao.fim;
+      return true; // "Todos"
+    });
+
+    // 3. Filtrar por Busca
+    if (searchText) {
+      const lowerCaseSearch = searchText.toLowerCase();
+      list = list.filter(estacao =>
+        estacao.rotulo.toLowerCase().includes(lowerCaseSearch) ||
+        estacao.idestacao.toLowerCase().includes(lowerCaseSearch)
+      );
+    }
+    return list;
+  }, [estacoesComPrecipitacao, tipoFiltro, statusFiltro, searchText]);
+
+  // FILTRO FINAL (Incluindo a seleção de item único do colega)
+  const filteredEstacoes = useMemo(() => {
+    if (selectedEstacaoId === "all") {
+      return filteredEstacoesBase;
+    }
+    // Retorna APENAS a estação selecionada, se ela estiver na lista base (respeita os outros filtros)
+    const selected = filteredEstacoesBase.filter((e) => e.idestacao === selectedEstacaoId);
+    return selected.length > 0 ? selected : filteredEstacoesBase; // fallback para a lista base se a selecionada sumir
+  }, [selectedEstacaoId, filteredEstacoesBase]);
+
+
+  // LÓGICA DE CENTRALIZAÇÃO DO MAPA (Código do colega)
+  const mapSettings = useMemo(() => {
+    if (selectedEstacaoId !== "all") {
+      const estacao = estacoesComPrecipitacao.find(e => e.idestacao === selectedEstacaoId);
+      if (estacao && estacao.lat && estacao.lng) {
+        return {
+          center: [estacao.lat, estacao.lng] as [number, number],
+          zoom: 12,
+        };
+      }
+    }
+    return {
+      center: INITIAL_CENTER,
+      zoom: INITIAL_ZOOM,
+    };
+  }, [selectedEstacaoId, estacoesComPrecipitacao]);
+
+  if (loading) {
+    return <div className="p-4 text-lg font-medium">Carregando mapa SIMA... 🗺️</div>;
+  }
 
   return (
+    // LAYOUT FLEXÍVEL (Seu código da Sidebar)
     <div className="flex" style={{ height: "calc(100vh - 80px)" }}>
-      <style>{popupStyles}</style>
 
+      {/* Sidebar (Passando a função de seleção e o ID) */}
       <Sidebar
+        tipoFiltro={tipoFiltro}
+        setTipoFiltro={setTipoFiltro}
+        statusFiltro={statusFiltro}
+        setStatusFiltro={setStatusFiltro}
         searchText={searchText}
         setSearchText={setSearchText}
-        filteredEstacoes={filteredEstacoesBase}
+        filteredEstacoes={filteredEstacoesBase} // NOTA: Passa a lista pré-filtrada para mostrar tudo na Sidebar
+        totalColeta={totalColeta}
+        totalReservatorios={totalReservatorios}
         selectedEstacaoId={selectedEstacaoId}
-        onSelectEstacao={setSelectedEstacaoId}
+        onSelectEstacao={setSelectedEstacaoId} // Função para centralizar no mapa
       />
 
-      {/* O fundo do mapa permanece claro */}
-      <div className="flex-1 p-4 overflow-hidden" style={{ backgroundColor: "#FFFFFF" }}>
-        <h1 className="text-3xl font-bold mb-4" style={{ color: "#333333" }}>
-          Mapa - Áreas de Monitoramento - Projeto SIMA
+      {/* Container do Mapa (flex-1) */}
+      <div className="flex-1 p-4 overflow-hidden">
+        <h1 className="text-3xl font-bold mb-4" style={{ color: colorsSima.primary }}>
+          Mapa de Monitoramento - Projeto SIMA
         </h1>
 
         <MapContainer
-          key={mapSettings.center.toString()} // Força o recenter
-          center={mapSettings.center}
-          zoom={mapSettings.zoom}
-          scrollWheelZoom
+          center={mapSettings.center} // Usa a centralização dinâmica do colega
+          zoom={mapSettings.zoom} // Usa o zoom dinâmico do colega
+          scrollWheelZoom={true}
           style={{ height: "100%", width: "100%", borderRadius: "12px" }}
         >
           <TileLayer
@@ -422,15 +514,13 @@ box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          {/* Marcadores */}
+          {/* Marcadores e Círculos: USAM filteredEstacoes (a lista final com item único, se houver) */}
           {filteredEstacoes.map(
             (estacao) =>
               estacao.lat &&
               estacao.lng && (
                 <Marker key={estacao.idestacao} position={[estacao.lat, estacao.lng]}>
-                  <Popup
-                    className="sima-popup" // Usa o estilo escuro
-                  >
+                  <Popup>
                     {(() => {
                       const imageKey = formatNameForImageKey(estacao.rotulo);
                       const imageSrc = reservatorioImages[imageKey] || null;
@@ -447,22 +537,19 @@ box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
                                 maxHeight: "150px",
                                 marginBottom: "10px",
                                 borderRadius: "4px",
-                                objectFit: "cover",
+                                objectFit: "cover"
                               }}
                             />
                           )}
 
-                          <h3
-                            style={{ color: colors.primary }} // Título Bege
-                            className="font-bold text-lg"
-                          >
+                          <h3 style={{ color: colorsSima.primary }} className="font-bold text-lg">
                             Estação: {estacao.rotulo}
                           </h3>
-                          <p>ID: {estacao.idestacao}</p>
+                          <p>ID da Estação: {estacao.idestacao}</p>
                           <p>Início: {formatDate(estacao.inicio)}</p>
                           <p>Fim: {estacao.fim ? formatDate(estacao.fim) : "Em operação"}</p>
-                          <p>Lat: {estacao.lat.toFixed(4)}</p>
-                          <p>Lng: {estacao.lng.toFixed(4)}</p>
+                          <p>Latitude: {estacao.lat.toFixed(4)}</p>
+                          <p>Longitude: {estacao.lng.toFixed(4)}</p>
                         </>
                       );
                     })()}
@@ -471,7 +558,33 @@ box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
               ),
           )}
 
-          {/* (REMOVIDO) Círculos de Precipitação */}
+          {filteredEstacoes.map((estacao) => {
+            const precipitacao = estacao.ultimaPrecipitacao ?? 0;
+            const { color, radius } = getPrecipitacaoStyle(precipitacao);
+
+            return (
+              estacao.lat &&
+              estacao.lng && (
+                <CircleMarker
+                  key={`precip-${estacao.idestacao}`}
+                  center={[estacao.lat, estacao.lng]}
+                  pathOptions={{ color: color, fillColor: color, fillOpacity: 0.7, weight: 1 }}
+                  radius={radius}
+                >
+                  <Popup>
+                    <h3 style={{ color: color }} className="font-bold text-lg">
+                      Estação: {estacao.rotulo}
+                    </h3>
+                    <p>
+                      Precipitação (últ. registro):{" "}
+                      <strong style={{ color }}>{precipitacao.toFixed(2)} mm</strong>
+                    </p>
+                    <p>ID da Estação: {estacao.idestacao}</p>
+                  </Popup>
+                </CircleMarker>
+              )
+            );
+          })}
         </MapContainer>
       </div>
     </div>

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 
-
 export default function PresentationText() {
   const [isVisible, setIsVisible] = useState(false);
 
@@ -43,4 +42,3 @@ export default function PresentationText() {
     </section>
   );
 }
-

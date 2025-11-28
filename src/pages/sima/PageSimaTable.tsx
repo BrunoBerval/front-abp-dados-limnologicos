@@ -1,20 +1,20 @@
-// src/pages/sima/PageSimaTable.tsx
-import { useState, useMemo } from 'react'; 
-import { Menu } from '../../components/commons/TableMenu'; // Ajuste o caminho conforme seu projeto
-import DataTable from '../../components/commons/DataTable'; // Ajuste o caminho
-import { Placeholder } from '../../components/commons/TablePlaceholder'; // Ajuste o caminho
-import { FilterBar } from '../../components/Filters/FilterBar'; // Ajuste o caminho
-import { ModalExport } from '../../components/Export/ModalExport'; // Ajuste o caminho
-import { useTableData } from '../../hooks/useTableData'; // Ajuste o caminho
-// Importamos o ícone de Menu Hambúrguer
-import { Menu as MenuIcon } from "lucide-react"; 
-
+// SimaTablePage.tsx 
+import { useState, useMemo } from 'react'; // 1. Importar useMemo
+import { Menu } from '../../components/commons/TableMenu';
+import DataTable from '../../components/commons/DataTable';
+import { Placeholder } from '../../components/commons/TablePlaceholder';
+import { FilterBar } from '../../components/Filters/FilterBar';
+import { ModalExport } from '../../components/Export/ModalExport'; // 2. Importar ModalExport
+import { useTableData } from '../../hooks/useTableData';
+// 3. Importar todos os tipos necessários
 import type { 
   FilterParams, 
   ColumnInfo, 
   ColumnType, 
-} from '../../types/types'; 
+  DataRow 
+} from '../../types/types'; // Ajuste o caminho
 
+// --- LISTA DE TABELAS DISPONÍVEIS PARA SIMA ---
 const tabelasDisponiveis = [
   { label: 'Campo Tabela', value: 'campo-tabela' },
   { label: 'Estação', value: 'estacao' },
@@ -27,43 +27,48 @@ export function SimaTablePage() {
   const [tabelaAtiva, setTabelaAtiva] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterParams>({});
   const [currentPage, setCurrentPage] = useState<number>(1);
+  // 4. Adicionar estado para o modal
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // ESTADO PARA CONTROLAR A SIDEBAR NO MOBILE
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
   const { dados, colunas, paginacao, loading, error } = useTableData(
-    'sima', 
+    'sima', // Database correto
     tabelaAtiva,
     currentPage,
     filters
   );
 
+  // 5. Lógica 'useMemo' para inferir os tipos de coluna (A "Ponte")
   const colunasDisponiveis = useMemo((): ColumnInfo[] => {
-    const getColumnType = (coluna: string): ColumnType => {
-      const lowerCol = coluna.toLowerCase();
-      if (lowerCol.startsWith('data')) return 'date';
-      if (lowerCol.startsWith('hora')) return 'time';
-      if (lowerCol.startsWith('descri')) return 'string';
+    if (!colunas || colunas.length === 0) {
+      return [];
+    }
 
-      for (const row of dados) {
-        const value = row[coluna];
-        if (value !== null && value !== undefined) {
-          const type = typeof value;
-          if (type === 'number') return 'number';
-          if (type === 'string') return 'string';
+    const primeiraLinha: DataRow | undefined = dados?.[0];
+
+    return colunas.map((colNome) => {
+      let tipo: ColumnType = 'unknown';
+
+      if (colNome.startsWith('data')) {
+        tipo = 'date';
+      } else if (colNome.startsWith('hora')) {
+        tipo = 'time';
+      } 
+      else if (primeiraLinha) {
+        const valor = primeiraLinha[colNome];
+        if (typeof valor === 'number') {
+          tipo = 'number';
+        } else if (typeof valor === 'string') {
+          tipo = 'string';
         }
       }
-      return 'number';
-    };
-
-    return colunas.map(coluna => {
-      return {
-        name: coluna,
-        type: getColumnType(coluna),
-      };
+      
+      if (tipo === 'unknown') {
+        tipo = 'string';
+      }
+      
+      return { name: colNome, type: tipo };
     });
-  }, [colunas, dados]); 
+  }, [colunas, dados]); // Recalcula se as colunas ou dados mudarem
 
   const handleSelectTabela = (novaTabela: string) => {
     setTabelaAtiva(novaTabela);
@@ -77,76 +82,50 @@ export function SimaTablePage() {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      {/* Menu Lateral Responsivo */}
+      {/* Menu Lateral */}
       <Menu 
         database='sima'
         title="Dados Sima"
         tabelas={tabelasDisponiveis}
         tabelaAtiva={tabelaAtiva}
         onSelectTabela={handleSelectTabela}
-        // Props de controle
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
       />
 
       {/* Área de Conteúdo Principal */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        
-        {/* BARRA DE TOPO MOBILE (Hambúrguer) */}
-        <div className="md:hidden bg-white p-4 shadow-sm flex items-center justify-between z-20 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="text-gray-600 hover:text-[#4682B4] transition-colors p-1"
-              aria-label="Abrir menu"
-            >
-              <MenuIcon className="w-7 h-7" />
-            </button>
-            <span className="font-bold text-lg text-[#4682B4]">
-              Projeto Sima
-            </span>
-          </div>
-        </div>
+      <main className="flex-1 overflow-y-auto">
+        {tabelaAtiva ? (
+          <>
+            {/* 6. Passar as novas props para o FilterBar */}
+            <FilterBar 
+              key={tabelaAtiva}
+              onApplyFilters={setFilters}
+              onClearFilters={() => setFilters({})}
+              onExportClick={() => setIsModalOpen(true)} // Abre o modal
+              colunasDisponiveis={colunasDisponiveis}  // Passa as colunas inferidas
+            />
 
-        {/* Conteúdo com Scroll */}
-        <div className="flex-1 overflow-y-auto">
-          {tabelaAtiva ? (
-            <>
-              <FilterBar 
-                database={"sima"}
-                tableName={tabelaAtiva}
-                key={tabelaAtiva}
-                onApplyFilters={setFilters}
-                onClearFilters={() => setFilters({})}
-                onExportClick={() => setIsModalOpen(true)}
-                colunasDisponiveis={colunasDisponiveis} 
-              />
-
-              <DataTable 
-                database="sima"
-                tableName={tabelaAtiva} 
-                dados={dados}
-                colunas={colunas}
-                loading={loading}
-                error={error}
-                paginacao={paginacao}
-                onPageChange={handlePageChange}
-              />
-            </>
-          ) : (
-            <Placeholder />
-          )}
-        </div>
+            <DataTable 
+              database="sima"
+              tableName={tabelaAtiva} 
+              dados={dados}
+              colunas={colunas}
+              loading={loading}
+              error={error}
+              paginacao={paginacao}
+              onPageChange={handlePageChange}
+            />
+          </>
+        ) : (
+          <Placeholder />
+        )}
       </main>
 
-      {/* Modal de Exportação */}
-      {tabelaAtiva && (
+      {/* 7. Renderizar o Modal (controlado pela página-pai) */}
+      {tabelaAtiva && ( // Só renderiza o modal se houver uma tabela ativa
         <ModalExport
-          currentPage={paginacao.page}
-          currentLimit={paginacao.limit}
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          database="sima"
+          database="sima" // Database correto
           tableName={tabelaAtiva}
           currentFilters={filters}
           totalRecords={paginacao.total}
